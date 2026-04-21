@@ -1,12 +1,13 @@
 // Andrei Iashchuk — portfolio interactions
-// Two views (paragraph, desk), ladder loop, email copy, tweakable theme.
+// Ladder loop, email copy, tweakable theme, dark mode.
 
 /**
  * @typedef {{
  *   accent: string,
  *   paper: string,
  *   handFont: string,
- *   proseFont: string
+ *   proseFont: string,
+ *   theme?: "light" | "dark"
  * }} TweakState
  */
 
@@ -20,8 +21,13 @@ const DEFAULTS = Object.freeze({
   accent: "#e4572e",
   paper: "#fbf8f1",
   handFont: "Caveat",
-  proseFont: "Instrument Serif",
+  proseFont: "Crimson Pro",
 });
+
+// Old prose-font defaults. If the stored value matches one of these we
+// drop it, so the current DEFAULTS.proseFont wins on the next load.
+// Explicit picks of other fonts are preserved.
+const LEGACY_PROSE_DEFAULTS = new Set(["Instrument Serif", "Spectral"]);
 
 // ── Persistence ────────────────────────────────────────────────────────
 /** @returns {TweakState} */
@@ -31,6 +37,7 @@ function loadState() {
     if (!raw) return { ...DEFAULTS };
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return { ...DEFAULTS };
+    if (LEGACY_PROSE_DEFAULTS.has(parsed.proseFont)) delete parsed.proseFont;
     return { ...DEFAULTS, ...parsed };
   } catch {
     return { ...DEFAULTS };
@@ -58,17 +65,32 @@ function squiggleDataUri(accent) {
   );
 }
 
+/** @returns {"light" | "dark"} */
+function systemColorMode() {
+  return window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
 /** @param {TweakState} state */
 function applyTheme(state) {
   const root = document.documentElement;
   root.style.setProperty("--accent", state.accent);
-  root.style.setProperty("--paper", state.paper);
   root.style.setProperty("--font-hand", `"${state.handFont}", cursive`);
   root.style.setProperty(
     "--font-prose",
     `"${state.proseFont}", "EB Garamond", Georgia, serif`
   );
   root.style.setProperty("--squiggle-bg", squiggleDataUri(state.accent));
+
+  // Paper is a light-mode concept — in dark mode the dark-theme tokens win.
+  const mode = root.getAttribute("data-theme") || systemColorMode();
+  if (mode === "dark") {
+    root.style.removeProperty("--paper");
+  } else {
+    root.style.setProperty("--paper", state.paper);
+  }
 }
 
 // ── Ladder loop (infinite vertical text scroller) ─────────────────────
@@ -168,6 +190,45 @@ function initEmailCopy(btn) {
   });
 }
 
+// ── Theme toggle (light ↔ dark) ───────────────────────────────────────
+/**
+ * @param {HTMLButtonElement} btn
+ * @param {() => TweakState} getState
+ * @param {(patch: Partial<TweakState>) => void} commit
+ */
+function initThemeToggle(btn, getState, commit) {
+  const root = document.documentElement;
+
+  const syncAria = () => {
+    const isDark = root.getAttribute("data-theme") === "dark";
+    btn.setAttribute("aria-pressed", isDark ? "true" : "false");
+    btn.setAttribute("title", isDark ? "switch to light" : "switch to dark");
+  };
+
+  syncAria();
+
+  btn.addEventListener("click", () => {
+    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    commit({ theme: next });
+    syncAria();
+  });
+
+  // Follow OS preference while the user hasn't made an explicit choice.
+  const mql = window.matchMedia("(prefers-color-scheme: dark)");
+  /** @param {MediaQueryListEvent} e */
+  const onSystemChange = (e) => {
+    if (getState().theme) return; // explicit pick overrides OS
+    root.setAttribute("data-theme", e.matches ? "dark" : "light");
+    syncAria();
+  };
+  if (typeof mql.addEventListener === "function") {
+    mql.addEventListener("change", onSystemChange);
+  } else if (typeof mql.addListener === "function") {
+    mql.addListener(onSystemChange); // Safari <14
+  }
+}
+
 // ── Tweaks panel ──────────────────────────────────────────────────────
 /**
  * @param {HTMLElement} panel
@@ -218,6 +279,14 @@ function init() {
   let state = loadState();
   applyTheme(state);
 
+  // Single commit closure shared by tweaks panel + theme toggle.
+  /** @param {Partial<TweakState>} patch */
+  const commit = (patch) => {
+    state = { ...state, ...patch };
+    saveState(state);
+    applyTheme(state);
+  };
+
   // Ladder loops
   document.querySelectorAll(".ladder").forEach((el) => {
     if (el instanceof HTMLElement) initLadder(el);
@@ -228,18 +297,16 @@ function init() {
     if (el instanceof HTMLButtonElement) initEmailCopy(el);
   });
 
+  // Theme toggle in the footer
+  const themeBtn = document.querySelector(".theme-toggle");
+  if (themeBtn instanceof HTMLButtonElement) {
+    initThemeToggle(themeBtn, () => state, commit);
+  }
+
   // Tweaks panel
   const panel = document.querySelector(".tweaks-panel");
   if (panel instanceof HTMLElement) {
-    initTweaks(
-      panel,
-      () => state,
-      (patch) => {
-        state = { ...state, ...patch };
-        saveState(state);
-        applyTheme(state);
-      }
-    );
+    initTweaks(panel, () => state, commit);
 
     // Toggle with `t` (but not while typing in a field).
     window.addEventListener("keydown", (e) => {
@@ -260,6 +327,13 @@ function init() {
       panel.toggleAttribute("hidden");
     });
   }
+
+  // Enable smooth palette transitions only after first paint, so the
+  // initial theme (light or dark, resolved by the inline head script)
+  // isn't animated into view.
+  requestAnimationFrame(() => {
+    document.documentElement.classList.add("theme-ready");
+  });
 }
 
 if (document.readyState === "loading") {
