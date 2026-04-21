@@ -18,16 +18,19 @@ const COPY_TOAST_MS = 1400;
 
 /** @type {TweakState} */
 const DEFAULTS = Object.freeze({
-  accent: "#e4572e",
-  paper: "#fbf8f1",
+  accent: "#6ba3c7",
+  paper: "#ffffff",
   handFont: "Caveat",
   proseFont: "Crimson Pro",
 });
 
-// Old prose-font defaults. If the stored value matches one of these we
-// drop it, so the current DEFAULTS.proseFont wins on the next load.
-// Explicit picks of other fonts are preserved.
+// Old defaults by field. If the stored value matches one of these, we
+// drop it so the current DEFAULT wins on next load — this lets us roll
+// the palette forward without stranding users who never touched the
+// tweaks panel. Explicit picks of other values are preserved.
 const LEGACY_PROSE_DEFAULTS = new Set(["Instrument Serif", "Spectral"]);
+const LEGACY_ACCENT_DEFAULTS = new Set(["#e4572e", "#c1daea"]);
+const LEGACY_PAPER_DEFAULTS = new Set(["#fbf8f1"]);
 
 // ── Persistence ────────────────────────────────────────────────────────
 /** @returns {TweakState} */
@@ -38,6 +41,8 @@ function loadState() {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return { ...DEFAULTS };
     if (LEGACY_PROSE_DEFAULTS.has(parsed.proseFont)) delete parsed.proseFont;
+    if (LEGACY_ACCENT_DEFAULTS.has(parsed.accent)) delete parsed.accent;
+    if (LEGACY_PAPER_DEFAULTS.has(parsed.paper)) delete parsed.paper;
     return { ...DEFAULTS, ...parsed };
   } catch {
     return { ...DEFAULTS };

@@ -112,13 +112,22 @@
                                 width="18"
                                 height="11"
                             />
-                            <path class="flap" d="M1 2 L10 9 L19 2" />
                             <rect
                                 class="letter"
                                 x="4"
-                                y="4"
+                                y="3.5"
                                 width="12"
-                                height="8"
+                                height="7"
+                                rx="0.4"
+                            />
+                            <path class="flap" d="M1 2 L10 9 L19 2" />
+                            <rect
+                                class="stamp"
+                                x="14.5"
+                                y="3.2"
+                                width="3"
+                                height="3"
+                                rx="0.3"
                             />
                         </svg>
                         <span class="email-text"
@@ -128,23 +137,42 @@
                     </button>
                 </p>
 
-                <nav class="footnotes" aria-label="Links">
-                    <a href="#" rel="noopener">&rarr;&nbsp;cv.pdf</a>
-                    <a
-                        href="https://github.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        >&rarr;&nbsp;github</a
-                    >
-                    <a
-                        href="https://linkedin.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        >&rarr;&nbsp;linkedin</a
-                    >
-                    <a href="mailto:andrey.yaschukk@gmail.com"
-                        >&rarr;&nbsp;email</a
-                    >
+                <nav class="chips" aria-label="Links">
+                    <ul>
+                        <li>
+                            <a
+                                href="#"
+                                rel="noopener"
+                                data-type="download"
+                                >cv<span class="ext">.pdf</span></a
+                            >
+                        </li>
+                        <li>
+                            <a
+                                href="https://github.com/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                data-type="external"
+                                >github</a
+                            >
+                        </li>
+                        <li>
+                            <a
+                                href="https://linkedin.com/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                data-type="external"
+                                >linkedin</a
+                            >
+                        </li>
+                        <li>
+                            <a
+                                href="mailto:andrey.yaschukk@gmail.com"
+                                data-type="email"
+                                >email</a
+                            >
+                        </li>
+                    </ul>
                 </nav>
 
                 <footer class="paragraph-footer" aria-label="Footer">
@@ -211,6 +239,13 @@
                     <button
                         class="swatch is-active"
                         type="button"
+                        data-value="#6ba3c7"
+                        style="background: #6ba3c7"
+                        aria-label="Steel blue"
+                    ></button>
+                    <button
+                        class="swatch"
+                        type="button"
                         data-value="#e4572e"
                         style="background: #e4572e"
                         aria-label="Orange"
@@ -259,6 +294,13 @@
                     <button
                         class="paper-swatch is-active"
                         type="button"
+                        data-value="#ffffff"
+                        style="background: #ffffff"
+                        aria-label="White"
+                    ></button>
+                    <button
+                        class="paper-swatch"
+                        type="button"
                         data-value="#fbf8f1"
                         style="background: #fbf8f1"
                         aria-label="Cream"
@@ -276,13 +318,6 @@
                         data-value="#efe9da"
                         style="background: #efe9da"
                         aria-label="Ecru"
-                    ></button>
-                    <button
-                        class="paper-swatch"
-                        type="button"
-                        data-value="#ffffff"
-                        style="background: #ffffff"
-                        aria-label="White"
                     ></button>
                     <button
                         class="paper-swatch"
