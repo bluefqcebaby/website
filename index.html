@@ -13,9 +13,12 @@
 
         <!-- Resolve color theme before CSS applies, to avoid a light flash
              for dark-mode visitors. Reads portfolio:tweaks.theme, else falls
-             back to prefers-color-scheme. -->
+             back to prefers-color-scheme.
+             Also stamps html.js-ready synchronously, so the intro-animation
+             hidden states apply on first paint (no FOUC). -->
         <script>
             (function () {
+                document.documentElement.classList.add("js-ready");
                 try {
                     var s = localStorage.getItem("portfolio:tweaks");
                     var t = s ? (JSON.parse(s) || {}).theme : null;

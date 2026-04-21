@@ -279,6 +279,114 @@ function initTweaks(panel, getState, commit) {
   return { syncUi };
 }
 
+// ── Intro animation ───────────────────────────────────────────────────
+// First-paint sequence:
+//   1. `.name` handwrites in (CSS clip-path reveal, triggered by class)
+//   2. `.subtitle` types out char-by-char with a blinking caret
+//   3. `.prose` paragraphs, `.chips`, `.paragraph-footer` fade + rise,
+//      staggered so each lands a beat after the previous one.
+// All cadence lives in INTRO so it can be tuned in one place. Elements
+// are hidden via `html.js-ready` CSS and revealed as each phase fires;
+// `prefers-reduced-motion` users get the end state immediately.
+
+const INTRO = Object.freeze({
+  nameDelay: 120,          // let first paint settle before the pen touches down
+  subtitleDelay: 900,      // subtitle starts slightly before name finishes
+  subtitleCharMs: 34,      // per-character typing cadence
+  subtitleCaretHold: 240,  // caret lingers briefly after last char
+  proseStart: 2300,        // after subtitle has typed its last character
+  proseStagger: 230,       // gap between paragraphs
+  tailGap: 200,            // extra gap before chips, then footer
+});
+
+/**
+ * Type `text` into `el` one char at a time, leaving the caret class in
+ * place until the final char lands (plus a small hold for the blink).
+ * @param {HTMLElement} el
+ * @param {string} text
+ * @param {number} perChar
+ * @returns {Promise<void>}
+ */
+function typeText(el, text, perChar) {
+  el.textContent = "";
+  el.classList.add("is-typing");
+  return new Promise((resolve) => {
+    let i = 0;
+    const tick = () => {
+      i += 1;
+      el.textContent = text.slice(0, i);
+      if (i < text.length) {
+        window.setTimeout(tick, perChar);
+      } else {
+        window.setTimeout(() => {
+          el.classList.remove("is-typing");
+          el.classList.add("is-typed");
+          resolve();
+        }, INTRO.subtitleCaretHold);
+      }
+    };
+    tick();
+  });
+}
+
+function runIntro() {
+  const name = document.querySelector(".name");
+  const subtitle = document.querySelector(".subtitle");
+  const proses = document.querySelectorAll(".prose");
+  const chips = document.querySelector(".chips");
+  const footer = document.querySelector(".paragraph-footer");
+
+  const prefersReduced = window.matchMedia(
+    "(prefers-reduced-motion: reduce)"
+  ).matches;
+
+  if (prefersReduced) {
+    // Snap to final state — no sequence, no delays.
+    name?.classList.add("is-written");
+    subtitle?.classList.add("is-typed");
+    proses.forEach((p) => p.classList.add("is-in"));
+    chips?.classList.add("is-in");
+    footer?.classList.add("is-in");
+    return;
+  }
+
+  // Stash subtitle text and clear it synchronously *before* paint, so
+  // the user never sees the full string flash before typing starts.
+  // The `.subtitle` has `min-height: 1.2em` so the row doesn't collapse.
+  const subtitleText =
+    subtitle instanceof HTMLElement
+      ? (subtitle.textContent ?? "").trim()
+      : "";
+  if (subtitle instanceof HTMLElement) subtitle.textContent = "";
+
+  // Phase 1: handwrite the name.
+  window.setTimeout(() => {
+    name?.classList.add("is-written");
+  }, INTRO.nameDelay);
+
+  // Phase 2: type the subtitle.
+  window.setTimeout(() => {
+    if (subtitle instanceof HTMLElement && subtitleText) {
+      typeText(subtitle, subtitleText, INTRO.subtitleCharMs);
+    }
+  }, INTRO.subtitleDelay);
+
+  // Phase 3: fade-rise each prose paragraph, staggered.
+  proses.forEach((p, i) => {
+    window.setTimeout(() => {
+      p.classList.add("is-in");
+    }, INTRO.proseStart + i * INTRO.proseStagger);
+  });
+
+  // Phase 4: chips row, then footer.
+  const afterProse = INTRO.proseStart + proses.length * INTRO.proseStagger;
+  window.setTimeout(() => chips?.classList.add("is-in"), afterProse);
+  window.setTimeout(
+    () => footer?.classList.add("is-in"),
+    afterProse + INTRO.tailGap
+  );
+}
+
 // ── App bootstrap ─────────────────────────────────────────────────────
 function init() {
   let state = loadState();
@@ -291,6 +399,10 @@ function init() {
     saveState(state);
     applyTheme(state);
   };
+
+  // Kick off the intro animation before anything else touches the DOM —
+  // it captures the subtitle textContent before clearing it to type.
+  runIntro();
 
   // Ladder loops
   document.querySelectorAll(".ladder").forEach((el) => {
