@@ -150,6 +150,9 @@ function initThemeToggle(btn, getState, commit) {
     root.setAttribute("data-theme", next);
     commit({ theme: next });
     syncAria();
+    if (typeof window.posthog !== "undefined") {
+      window.posthog.capture("theme_toggled", { theme: next });
+    }
   });
 
   // Follow OS preference while the user hasn't made an explicit choice.
@@ -425,6 +428,35 @@ function init() {
 
   // Custom cursor. No-ops on touch devices.
   initCursor();
+
+  // ── PostHog link tracking ─────────────────────────────────────────
+  if (typeof window.posthog !== "undefined") {
+    // Contact / profile links
+    /** @type {Array<[string, string]>} */
+    const contactLinks = [
+      [".inline-link-cv", "cv_downloaded"],
+      [".inline-link-email", "email_link_clicked"],
+      [".inline-link-linkedin", "linkedin_link_clicked"],
+      [".inline-link-github", "github_link_clicked"],
+    ];
+    contactLinks.forEach(([selector, event]) => {
+      document.querySelector(selector)?.addEventListener("click", () => {
+        window.posthog.capture(event);
+      });
+    });
+
+    // Company links in the about section
+    /** @type {NodeListOf<HTMLAnchorElement>} */
+    const companyLinks = document.querySelectorAll(".sect[data-section='about'] a.u-solid");
+    companyLinks.forEach((link) => {
+      link.addEventListener("click", () => {
+        window.posthog.capture("company_link_clicked", {
+          company: link.textContent?.trim() ?? "",
+          url: link.href,
+        });
+      });
+    });
+  }
 
   // Enable smooth palette transitions only after first paint, so the
   // initial theme (light or dark, resolved by the inline head script)
