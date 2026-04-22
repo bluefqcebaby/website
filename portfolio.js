@@ -11,6 +11,7 @@ const LADDER_GAP_MS = 450;          // pause once a line is fully erased, before
 const LADDER_TYPE_MS = 70;          // base per-char typing delay
 const LADDER_TYPE_JITTER_MS = 45;   // extra 0..N ms per char — keeps the cadence human
 const LADDER_ERASE_MS = 35;         // per-char erase delay (snappier than typing)
+const POSTHOG_DEBUG_PARAM = "ph_debug";
 
 // ── Persistence ────────────────────────────────────────────────────────
 // Only the user's explicit light/dark pick is persisted. Accent, paper,
@@ -37,6 +38,26 @@ function saveState(state) {
   } catch {
     /* ignore quota / private-mode errors */
   }
+}
+
+/** @returns {boolean} */
+function isPostHogDebugEnabled() {
+  return new URLSearchParams(window.location.search).has(POSTHOG_DEBUG_PARAM);
+}
+
+/**
+ * @param {string} event
+ * @param {Record<string, unknown>} [properties]
+ * @param {{ send_instantly?: boolean }} [options]
+ */
+function capturePostHogEvent(event, properties = {}, options = {}) {
+  if (typeof window.posthog === "undefined") return;
+
+  if (isPostHogDebugEnabled()) {
+    console.info("[PostHog]", event, properties, options);
+  }
+
+  window.posthog.capture(event, properties, options);
 }
 
 // ── Ladder loop (typewriter: erases the current line, types the next) ─
@@ -150,9 +171,7 @@ function initThemeToggle(btn, getState, commit) {
     root.setAttribute("data-theme", next);
     commit({ theme: next });
     syncAria();
-    if (typeof window.posthog !== "undefined") {
-      window.posthog.capture("theme_toggled", { theme: next });
-    }
+    capturePostHogEvent("theme_toggled", { theme: next });
   });
 
   // Follow OS preference while the user hasn't made an explicit choice.
@@ -431,6 +450,15 @@ function init() {
 
   // ── PostHog link tracking ─────────────────────────────────────────
   if (typeof window.posthog !== "undefined") {
+    capturePostHogEvent(
+      "portfolio_loaded",
+      {
+        path: window.location.pathname,
+        theme: document.documentElement.getAttribute("data-theme") ?? "light",
+      },
+      { send_instantly: true }
+    );
+
     // Contact / profile links
     /** @type {Array<[string, string]>} */
     const contactLinks = [
@@ -441,7 +469,7 @@ function init() {
     ];
     contactLinks.forEach(([selector, event]) => {
       document.querySelector(selector)?.addEventListener("click", () => {
-        window.posthog.capture(event);
+        capturePostHogEvent(event, {}, { send_instantly: true });
       });
     });
 
@@ -450,10 +478,14 @@ function init() {
     const companyLinks = document.querySelectorAll(".sect[data-section='about'] a.u-solid");
     companyLinks.forEach((link) => {
       link.addEventListener("click", () => {
-        window.posthog.capture("company_link_clicked", {
-          company: link.textContent?.trim() ?? "",
-          url: link.href,
-        });
+        capturePostHogEvent(
+          "company_link_clicked",
+          {
+            company: link.textContent?.trim() ?? "",
+            url: link.href,
+          },
+          { send_instantly: true }
+        );
       });
     });
   }
