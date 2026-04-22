@@ -279,7 +279,8 @@ function initTweaks(panel, getState, commit) {
 // First-paint sequence:
 //   1. `.name` handwrites in (CSS clip-path reveal, triggered by class)
 //   2. `.subtitle` types out char-by-char with a blinking caret
-//   3. `.prose` paragraphs, `.chips`, `.paragraph-footer` fade + rise,
+//   3. `.prose` paragraphs, `.stack`, dividers, and `.paragraph-footer`
+//      fade + rise,
 //      staggered so each lands a beat after the previous one.
 // All cadence lives in INTRO so it can be tuned in one place. Elements
 // are hidden via `html.js-ready` CSS and revealed as each phase fires;
@@ -292,7 +293,7 @@ const INTRO = Object.freeze({
   subtitleCaretHold: 240,  // caret lingers briefly after last char
   proseStart: 2300,        // after subtitle has typed its last character
   proseStagger: 230,       // gap between paragraphs
-  tailGap: 200,            // extra gap before chips, then footer
+  footerGap: 200,          // extra breathing room after the last prose beat
 });
 
 /**
@@ -328,10 +329,10 @@ function typeText(el, text, perChar) {
 function runIntro() {
   const name = document.querySelector(".name");
   const subtitle = document.querySelector(".subtitle");
-  // Include `.stack` so its fade-rise slots into the stagger in document
-  // order (it sits between P3 and P4 in markup).
-  const proses = document.querySelectorAll(".prose, .stack");
-  const chips = document.querySelector(".chips");
+  // Prose, stack, AND dividers share one document-order stagger. That
+  // way each divider lands between the section it closes and the one it
+  // opens, instead of firing before any of the content it introduces.
+  const items = document.querySelectorAll(".prose, .stack, .divider");
   const footer = document.querySelector(".paragraph-footer");
 
   const prefersReduced = window.matchMedia(
@@ -342,8 +343,7 @@ function runIntro() {
     // Snap to final state — no sequence, no delays.
     name?.classList.add("is-written");
     subtitle?.classList.add("is-typed");
-    proses.forEach((p) => p.classList.add("is-in"));
-    chips?.classList.add("is-in");
+    items.forEach((el) => el.classList.add("is-in"));
     footer?.classList.add("is-in");
     return;
   }
@@ -369,19 +369,19 @@ function runIntro() {
     }
   }, INTRO.subtitleDelay);
 
-  // Phase 3: fade-rise each prose paragraph, staggered.
-  proses.forEach((p, i) => {
+  // Phase 3: fade-rise each item (prose / stack / divider), staggered
+  // in document order so dividers fall naturally between sections.
+  items.forEach((el, i) => {
     window.setTimeout(() => {
-      p.classList.add("is-in");
+      el.classList.add("is-in");
     }, INTRO.proseStart + i * INTRO.proseStagger);
   });
 
-  // Phase 4: chips row, then footer.
-  const afterProse = INTRO.proseStart + proses.length * INTRO.proseStagger;
-  window.setTimeout(() => chips?.classList.add("is-in"), afterProse);
+  // Phase 4: footer after the last item beat has landed.
+  const afterItems = INTRO.proseStart + items.length * INTRO.proseStagger;
   window.setTimeout(
     () => footer?.classList.add("is-in"),
-    afterProse + INTRO.tailGap
+    afterItems + INTRO.footerGap
   );
 }
 
@@ -451,3 +451,31 @@ if (document.readyState === "loading") {
 } else {
   init();
 }
+
+// ── Section dividers (about → skills → ai → links) ───────────────────
+// Each .divider gets a .dv-label span filled from its data-label.
+// The reveal (fade-rise) is owned by runIntro(), which walks
+// `.prose, .stack, .divider` in document order so dividers land between
+// the section they close and the one they open — not ahead of both.
+(function () {
+  function initDividers() {
+    /** @type {NodeListOf<HTMLElement>} */
+    const dividers = document.querySelectorAll(".divider");
+    if (dividers.length === 0) return;
+
+    dividers.forEach((divider) => {
+      // Skip re-appending if this IIFE somehow fires twice (e.g. HMR).
+      if (divider.querySelector(".dv-label")) return;
+      const label = document.createElement("span");
+      label.className = "dv-label";
+      label.textContent = divider.getAttribute("data-label") ?? "";
+      divider.appendChild(label);
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initDividers);
+  } else {
+    initDividers();
+  }
+})();
