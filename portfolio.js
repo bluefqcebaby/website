@@ -1,14 +1,8 @@
 // Andrei Yaschuk — portfolio interactions
-// Ladder loop, email copy, tweakable theme, dark mode.
+// Ladder loop, intro animation, dark mode toggle.
 
 /**
- * @typedef {{
- *   accent: string,
- *   paper: string,
- *   handFont: string,
- *   proseFont: string,
- *   theme?: "light" | "dark"
- * }} TweakState
+ * @typedef {{ theme?: "light" | "dark" }} PersistedState
  */
 
 const STORAGE_KEY = "portfolio:tweaks";
@@ -18,87 +12,30 @@ const LADDER_TYPE_MS = 70;          // base per-char typing delay
 const LADDER_TYPE_JITTER_MS = 45;   // extra 0..N ms per char — keeps the cadence human
 const LADDER_ERASE_MS = 35;         // per-char erase delay (snappier than typing)
 
-/** @type {TweakState} */
-const DEFAULTS = Object.freeze({
-  accent: "#6ba3c7",
-  paper: "#ffffff",
-  handFont: "Gloria Hallelujah",
-  proseFont: "Crimson Pro",
-});
-
-// Old defaults by field. If the stored value matches one of these, we
-// drop it so the current DEFAULT wins on next load — this lets us roll
-// the palette forward without stranding users who never touched the
-// tweaks panel. Explicit picks of other values are preserved.
-const LEGACY_HAND_DEFAULTS = new Set(["Caveat"]);
-const LEGACY_PROSE_DEFAULTS = new Set(["Instrument Serif", "Spectral"]);
-const LEGACY_ACCENT_DEFAULTS = new Set(["#e4572e", "#c1daea"]);
-const LEGACY_PAPER_DEFAULTS = new Set(["#fbf8f1"]);
-
 // ── Persistence ────────────────────────────────────────────────────────
-/** @returns {TweakState} */
+// Only the user's explicit light/dark pick is persisted. Accent, paper,
+// and font choices live in CSS tokens now — any legacy fields left over
+// in the stored object are ignored on read.
+/** @returns {PersistedState} */
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULTS };
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return { ...DEFAULTS };
-    if (LEGACY_HAND_DEFAULTS.has(parsed.handFont)) delete parsed.handFont;
-    if (LEGACY_PROSE_DEFAULTS.has(parsed.proseFont)) delete parsed.proseFont;
-    if (LEGACY_ACCENT_DEFAULTS.has(parsed.accent)) delete parsed.accent;
-    if (LEGACY_PAPER_DEFAULTS.has(parsed.paper)) delete parsed.paper;
-    return { ...DEFAULTS, ...parsed };
+    if (!raw) return {};
+    const parsed = /** @type {unknown} */ (JSON.parse(raw));
+    if (!parsed || typeof parsed !== "object") return {};
+    const theme = /** @type {Record<string, unknown>} */ (parsed).theme;
+    return theme === "light" || theme === "dark" ? { theme } : {};
   } catch {
-    return { ...DEFAULTS };
+    return {};
   }
 }
 
-/** @param {TweakState} state */
+/** @param {PersistedState} state */
 function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     /* ignore quota / private-mode errors */
-  }
-}
-
-// ── Theme application ─────────────────────────────────────────────────
-/** @param {string} accent */
-function squiggleDataUri(accent) {
-  const hex = accent.replace("#", "%23");
-  return (
-    `url("data:image/svg+xml;utf8,` +
-    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 6' preserveAspectRatio='none'>` +
-    `<path d='M0 3 Q 2.5 0, 5 3 T 10 3 T 15 3 T 20 3' fill='none' stroke='${hex}' stroke-width='1.2'/>` +
-    `</svg>")`
-  );
-}
-
-/** @returns {"light" | "dark"} */
-function systemColorMode() {
-  return window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
-/** @param {TweakState} state */
-function applyTheme(state) {
-  const root = document.documentElement;
-  root.style.setProperty("--accent", state.accent);
-  root.style.setProperty("--font-hand", `"${state.handFont}", cursive`);
-  root.style.setProperty(
-    "--font-prose",
-    `"${state.proseFont}", "EB Garamond", Georgia, serif`
-  );
-  root.style.setProperty("--squiggle-bg", squiggleDataUri(state.accent));
-
-  // Paper is a light-mode concept — in dark mode the dark-theme tokens win.
-  const mode = root.getAttribute("data-theme") || systemColorMode();
-  if (mode === "dark") {
-    root.style.removeProperty("--paper");
-  } else {
-    root.style.setProperty("--paper", state.paper);
   }
 }
 
@@ -194,8 +131,8 @@ function initLadder(host) {
 // ── Theme toggle (light ↔ dark) ───────────────────────────────────────
 /**
  * @param {HTMLButtonElement} btn
- * @param {() => TweakState} getState
- * @param {(patch: Partial<TweakState>) => void} commit
+ * @param {() => PersistedState} getState
+ * @param {(patch: Partial<PersistedState>) => void} commit
  */
 function initThemeToggle(btn, getState, commit) {
   const root = document.documentElement;
@@ -230,51 +167,6 @@ function initThemeToggle(btn, getState, commit) {
   }
 }
 
-// ── Tweaks panel ──────────────────────────────────────────────────────
-/**
- * @param {HTMLElement} panel
- * @param {() => TweakState} getState
- * @param {(patch: Partial<TweakState>) => void} commit
- */
-function initTweaks(panel, getState, commit) {
-  const syncUi = () => {
-    const state = getState();
-    /** @type {NodeListOf<HTMLElement>} */
-    const groups = panel.querySelectorAll("[data-group]");
-    groups.forEach((group) => {
-      const key = /** @type {keyof TweakState} */ (group.dataset.group);
-      const value = state[key];
-      /** @type {NodeListOf<HTMLButtonElement>} */
-      const options = group.querySelectorAll("[data-value]");
-      options.forEach((opt) => {
-        opt.classList.toggle("is-active", opt.dataset.value === value);
-      });
-    });
-  };
-
-  syncUi();
-
-  panel.addEventListener("click", (e) => {
-    const target = e.target;
-    if (!(target instanceof HTMLElement)) return;
-
-    const group = target.closest("[data-group]");
-    const option = target.closest("[data-value]");
-    if (!(group instanceof HTMLElement) || !(option instanceof HTMLElement)) {
-      return;
-    }
-
-    const key = group.dataset.group;
-    const value = option.dataset.value;
-    if (!key || value === undefined) return;
-
-    commit({ [key]: value });
-    syncUi();
-  });
-
-  return { syncUi };
-}
-
 // ── Intro animation ───────────────────────────────────────────────────
 // First-paint sequence:
 //   1. `.name` handwrites in (CSS clip-path reveal, triggered by class)
@@ -294,6 +186,7 @@ const INTRO = Object.freeze({
   proseStart: 2300,        // after subtitle has typed its last character
   proseStagger: 230,       // gap between paragraphs
   footerGap: 200,          // extra breathing room after the last prose beat
+  lightGap: 900,           // pause after the footer lands before the accent light warms on
 });
 
 /**
@@ -345,6 +238,7 @@ function runIntro() {
     subtitle?.classList.add("is-typed");
     items.forEach((el) => el.classList.add("is-in"));
     footer?.classList.add("is-in");
+    document.documentElement.classList.add("is-lit");
     return;
   }
 
@@ -379,23 +273,26 @@ function runIntro() {
 
   // Phase 4: footer after the last item beat has landed.
   const afterItems = INTRO.proseStart + items.length * INTRO.proseStagger;
+  const footerAt = afterItems + INTRO.footerGap;
+  window.setTimeout(() => footer?.classList.add("is-in"), footerAt);
+
+  // Phase 5: switch the accent light on. A beat after the footer lands
+  // so the eye registers "everything's placed, now the room lights up"
+  // rather than the glow racing the last fade.
   window.setTimeout(
-    () => footer?.classList.add("is-in"),
-    afterItems + INTRO.footerGap
+    () => document.documentElement.classList.add("is-lit"),
+    footerAt + INTRO.lightGap
   );
 }
 
 // ── App bootstrap ─────────────────────────────────────────────────────
 function init() {
   let state = loadState();
-  applyTheme(state);
 
-  // Single commit closure shared by tweaks panel + theme toggle.
-  /** @param {Partial<TweakState>} patch */
+  /** @param {Partial<PersistedState>} patch */
   const commit = (patch) => {
     state = { ...state, ...patch };
     saveState(state);
-    applyTheme(state);
   };
 
   // Kick off the intro animation before anything else touches the DOM —
@@ -411,31 +308,6 @@ function init() {
   const themeBtn = document.querySelector(".theme-toggle");
   if (themeBtn instanceof HTMLButtonElement) {
     initThemeToggle(themeBtn, () => state, commit);
-  }
-
-  // Tweaks panel
-  const panel = document.querySelector(".tweaks-panel");
-  if (panel instanceof HTMLElement) {
-    initTweaks(panel, () => state, commit);
-
-    // Toggle with `t` (but not while typing in a field).
-    window.addEventListener("keydown", (e) => {
-      if (e.defaultPrevented) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key !== "t" && e.key !== "T") return;
-
-      const active = document.activeElement;
-      if (
-        active instanceof HTMLElement &&
-        (active.isContentEditable ||
-          active.tagName === "INPUT" ||
-          active.tagName === "TEXTAREA")
-      ) {
-        return;
-      }
-
-      panel.toggleAttribute("hidden");
-    });
   }
 
   // Enable smooth palette transitions only after first paint, so the
