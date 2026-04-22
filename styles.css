@@ -189,16 +189,10 @@ html, body {
   filter: invert(1);
 }
 
-/* ── Email link (inline, copies on click) ───────────────────────────── */
+/* ── Email link (inline mailto:) ─────────────────────────────────────── */
 .email-pill {
-  padding: 0;
-  background: transparent;
-  border: none;
-  -webkit-appearance: none;
-  appearance: none;
-  font: inherit;
   color: inherit;
-  line-height: inherit;
+  text-decoration: none;
   cursor: pointer;
   position: relative;
   transition: color 0.15s;
@@ -242,27 +236,6 @@ html, body {
 .email-pill:hover .email-icon,
 .email-pill:focus-visible .email-icon {
   animation: email-startle 620ms cubic-bezier(0.3, 0.7, 0.3, 1) both;
-}
-
-.email-toast {
-  position: absolute;
-  top: -22px;
-  left: 0;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--ink);
-  background: var(--paper);
-  padding: 2px 6px;
-  border: 1px solid var(--ink);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.18s;
-  white-space: nowrap;
-  letter-spacing: 0.5px;
-}
-
-.email-pill.is-copied .email-toast {
-  opacity: 1;
 }
 
 /* ── Chips (handwritten marker links) ───────────────────────────────── */
@@ -662,8 +635,7 @@ html.js-ready .paragraph-footer.is-in {
     print-color-adjust: exact;
   }
 
-  .tweaks-panel,
-  .email-toast { display: none !important; }
+  .tweaks-panel { display: none !important; }
 
   * { animation: none !important; transition: none !important; }
 }

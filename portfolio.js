@@ -17,7 +17,6 @@ const LADDER_GAP_MS = 450;          // pause once a line is fully erased, before
 const LADDER_TYPE_MS = 70;          // base per-char typing delay
 const LADDER_TYPE_JITTER_MS = 45;   // extra 0..N ms per char — keeps the cadence human
 const LADDER_ERASE_MS = 35;         // per-char erase delay (snappier than typing)
-const COPY_TOAST_MS = 1400;
 
 /** @type {TweakState} */
 const DEFAULTS = Object.freeze({
@@ -190,47 +189,6 @@ function initLadder(host) {
       await typeIn(lines[index]);
     }
   })();
-}
-
-// ── Email copy ────────────────────────────────────────────────────────
-/** @param {HTMLButtonElement} btn */
-function initEmailCopy(btn) {
-  const email = btn.dataset.email ?? "";
-  const toast = btn.querySelector(".email-toast");
-
-  /** @type {number | undefined} */
-  let toastTimer;
-
-  const showToast = (msg) => {
-    if (toast instanceof HTMLElement) toast.textContent = msg;
-    btn.classList.add("is-copied");
-    window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => {
-      btn.classList.remove("is-copied");
-    }, COPY_TOAST_MS);
-  };
-
-  btn.addEventListener("click", async () => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(email);
-      } else {
-        // Fallback for older browsers / non-secure contexts.
-        const ta = document.createElement("textarea");
-        ta.value = email;
-        ta.setAttribute("readonly", "");
-        ta.style.position = "fixed";
-        ta.style.top = "-1000px";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-      }
-      showToast("copied ✓");
-    } catch {
-      showToast("copy failed");
-    }
-  });
 }
 
 // ── Theme toggle (light ↔ dark) ───────────────────────────────────────
@@ -447,11 +405,6 @@ function init() {
   // Ladder loops
   document.querySelectorAll(".ladder").forEach((el) => {
     if (el instanceof HTMLElement) initLadder(el);
-  });
-
-  // Email pill
-  document.querySelectorAll(".email-pill").forEach((el) => {
-    if (el instanceof HTMLButtonElement) initEmailCopy(el);
   });
 
   // Theme toggle in the footer
