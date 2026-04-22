@@ -524,6 +524,106 @@ html.js-ready .paragraph-footer.is-in {
   }
 }
 
+/* ── Custom cursor (ink dot + trailing ring) ────────────────────────
+   4px ink dot on the pointer; 28px outlined ring lagging with spring
+   easing. Ring fills with --accent over links, scales up on chips &
+   squiggles, collapses into an I-beam over prose. Only enabled on
+   fine pointers (mouse / trackpad) — touch devices keep the OS
+   default. `cursor-ready` is stamped by JS once the custom layer is
+   mounted; `cursor-visible` lights up on the first real pointermove,
+   which avoids a flash in the wrong position on load. */
+@media (pointer: fine) {
+  html.cursor-ready,
+  html.cursor-ready * { cursor: none; }
+
+  /* Keep native focus outlines — they're the keyboard path. */
+  html.cursor-ready :focus-visible { outline: 2px solid var(--accent); }
+}
+
+.cursor-dot,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  will-change: transform;
+  transition: opacity 0.25s ease;
+}
+
+html.cursor-visible .cursor-dot,
+html.cursor-visible .cursor-ring { opacity: 1; }
+
+.cursor-dot {
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  background: var(--ink);
+  border-radius: 50%;
+}
+
+.cursor-ring {
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  transition:
+    width 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    height 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    margin 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-radius 0.2s,
+    border-style 0.18s,
+    border-color 0.18s,
+    background-color 0.18s,
+    opacity 0.25s ease;
+}
+
+.cursor-ring.is-link {
+  background: color-mix(in oklab, var(--accent) 55%, transparent);
+  border-color: var(--accent);
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+}
+
+.cursor-ring.is-chip {
+  width: 50px;
+  height: 34px;
+  margin: -17px 0 0 -25px;
+  border-radius: 999px;
+  border-color: var(--accent);
+}
+
+.cursor-ring.is-squiggle {
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-color: var(--accent);
+  border-style: dashed;
+}
+
+.cursor-ring.is-text {
+  width: 2px;
+  height: 18px;
+  margin: -9px 0 0 -1px;
+  border-width: 0;
+  border-radius: 0;
+  background: var(--ink);
+}
+
+html.cursor-visible .cursor-dot.is-text { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-ring {
+    transition:
+      border-color 0.18s,
+      background-color 0.18s,
+      opacity 0.25s ease;
+  }
+}
+
 /* ── Print ──────────────────────────────────────────────────────────── */
 @media print {
   @page { margin: 0; }
@@ -535,4 +635,7 @@ html.js-ready .paragraph-footer.is-in {
   }
 
   * { animation: none !important; transition: none !important; }
+
+  /* Custom cursor is presentation only — hide in print. */
+  .cursor-dot, .cursor-ring { display: none !important; }
 }

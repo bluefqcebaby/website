@@ -285,6 +285,119 @@ function runIntro() {
   );
 }
 
+// ── Custom cursor (ink dot + trailing ring) ──────────────────────────
+// 4px ink dot on the pointer; 28px outlined ring lagging with spring
+// easing. Ring fills with --accent over links, scales up on chips &
+// squiggles, collapses to an I-beam over prose. Skips touch devices
+// so the native OS cursor is left alone there.
+/**
+ * @typedef {"none" | "link" | "chip" | "squiggle" | "text"} CursorCtx
+ */
+
+/**
+ * Walk up from the element at (x, y) to the first recognized context.
+ * Order matters: .squiggle / .stack-pill must win over the paragraph
+ * they technically sit inside.
+ * @param {number} x
+ * @param {number} y
+ * @returns {CursorCtx}
+ */
+function cursorContextAt(x, y) {
+  const hit = document.elementFromPoint(x, y);
+  if (!(hit instanceof Element)) return "none";
+
+  /** @type {Element | null} */
+  let cur = hit;
+  while (cur && cur !== document.body) {
+    const cl = cur.classList;
+    if (cl.contains("squiggle")) return "squiggle";
+    if (cl.contains("stack-pill")) return "chip";
+    const tag = cur.tagName;
+    if (tag === "A" || tag === "BUTTON") return "link";
+    if (tag === "P" || tag === "LI" || tag === "BLOCKQUOTE") return "text";
+    cur = cur.parentElement;
+  }
+  return "none";
+}
+
+function initCursor() {
+  // Coarse pointers (touch) keep the native cursor — no custom layer.
+  if (!window.matchMedia("(pointer: fine)").matches) return;
+
+  const html = document.documentElement;
+  const dot = document.createElement("div");
+  dot.className = "cursor-dot";
+  dot.setAttribute("aria-hidden", "true");
+  const ring = document.createElement("div");
+  ring.className = "cursor-ring";
+  ring.setAttribute("aria-hidden", "true");
+  document.body.append(dot, ring);
+  html.classList.add("cursor-ready");
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  // Start off-screen so nothing flashes at the wrong position on load —
+  // first real pointermove snaps both dot and ring to the mouse.
+  let mx = -100;
+  let my = -100;
+  let rx = -100;
+  let ry = -100;
+  let hasMoved = false;
+
+  window.addEventListener(
+    "pointermove",
+    (e) => {
+      mx = e.clientX;
+      my = e.clientY;
+      if (!hasMoved) {
+        hasMoved = true;
+        rx = mx;
+        ry = my;
+        html.classList.add("cursor-visible");
+      }
+    },
+    { passive: true }
+  );
+
+  // Pointer leaving the document (window edge, devtools, etc.) fades out
+  // the custom cursor so it doesn't stick at the last position.
+  document.addEventListener("pointerleave", () => {
+    html.classList.remove("cursor-visible");
+  });
+  document.addEventListener("pointerenter", () => {
+    if (hasMoved) html.classList.add("cursor-visible");
+  });
+
+  /** @type {CursorCtx} */
+  let lastCtx = "none";
+
+  const tick = () => {
+    // Reduced-motion: ring snaps (no lag). Otherwise spring toward the
+    // pointer with a fixed easing factor each frame.
+    const t = reduceMotion.matches ? 1 : 0.18;
+    rx += (mx - rx) * t;
+    ry += (my - ry) * t;
+
+    dot.style.transform = `translate3d(${mx}px, ${my}px, 0)`;
+    ring.style.transform = `translate3d(${rx}px, ${ry}px, 0)`;
+
+    const ctx = cursorContextAt(mx, my);
+    if (ctx !== lastCtx) {
+      // Only touch class lists when the context actually changes —
+      // avoids the browser invalidating style on every frame.
+      ring.classList.toggle("is-link", ctx === "link");
+      ring.classList.toggle("is-chip", ctx === "chip");
+      ring.classList.toggle("is-squiggle", ctx === "squiggle");
+      ring.classList.toggle("is-text", ctx === "text");
+      dot.classList.toggle("is-text", ctx === "text");
+      lastCtx = ctx;
+    }
+
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 // ── App bootstrap ─────────────────────────────────────────────────────
 function init() {
   let state = loadState();
@@ -309,6 +422,9 @@ function init() {
   if (themeBtn instanceof HTMLButtonElement) {
     initThemeToggle(themeBtn, () => state, commit);
   }
+
+  // Custom cursor. No-ops on touch devices.
+  initCursor();
 
   // Enable smooth palette transitions only after first paint, so the
   // initial theme (light or dark, resolved by the inline head script)
