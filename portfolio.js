@@ -12,8 +12,11 @@
  */
 
 const STORAGE_KEY = "portfolio:tweaks";
-const LADDER_INTERVAL_MS = 2600;
-const LADDER_DURATION_MS = 650;
+const LADDER_HOLD_MS = 2600;        // pause once a line is fully typed
+const LADDER_GAP_MS = 450;          // pause once a line is fully erased, before typing the next
+const LADDER_TYPE_MS = 70;          // base per-char typing delay
+const LADDER_TYPE_JITTER_MS = 45;   // extra 0..N ms per char — keeps the cadence human
+const LADDER_ERASE_MS = 35;         // per-char erase delay (snappier than typing)
 const COPY_TOAST_MS = 1400;
 
 /** @type {TweakState} */
@@ -98,60 +101,71 @@ function applyTheme(state) {
   }
 }
 
-// ── Ladder loop (infinite vertical text scroller) ─────────────────────
+// ── Ladder loop (typewriter: erases the current line, types the next) ─
 /** @param {HTMLElement} host */
 function initLadder(host) {
   const raw = host.dataset.ladderLines ?? "";
   const lines = raw.split("|").filter(Boolean);
-  if (lines.length < 2) return;
+  if (lines.length === 0) return;
+
+  host.textContent = "";
+
+  const text = document.createElement("span");
+  text.className = "ladder-text";
+  text.textContent = lines[0];
+  host.appendChild(text);
 
   const prefersReducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)"
   ).matches;
 
-  host.textContent = "";
+  // Single line or reduced motion → leave the first line on-screen as
+  // static text, skip the caret entirely (nothing to type, nothing to blink).
+  if (prefersReducedMotion || lines.length < 2) return;
 
-  const track = document.createElement("span");
-  track.className = "ladder-track";
-  host.appendChild(track);
+  const caret = document.createElement("span");
+  caret.className = "ladder-caret";
+  caret.setAttribute("aria-hidden", "true");
+  host.appendChild(caret);
 
-  let index = 0;
-  const currentLine = document.createElement("span");
-  currentLine.className = "ladder-line";
-  currentLine.textContent = lines[index];
-  track.appendChild(currentLine);
+  /**
+   * @param {number} ms
+   * @returns {Promise<void>}
+   */
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const nextLine = document.createElement("span");
-  nextLine.className = "ladder-line";
-  nextLine.textContent = lines[(index + 1) % lines.length];
-  track.appendChild(nextLine);
+  /** @param {string} target */
+  const typeIn = async (target) => {
+    host.classList.add("is-busy");
+    for (let i = 1; i <= target.length; i++) {
+      text.textContent = target.slice(0, i);
+      await wait(LADDER_TYPE_MS + Math.random() * LADDER_TYPE_JITTER_MS);
+    }
+    host.classList.remove("is-busy");
+  };
 
-  if (prefersReducedMotion) return;
+  const eraseAll = async () => {
+    host.classList.add("is-busy");
+    const current = text.textContent ?? "";
+    for (let i = current.length - 1; i >= 0; i--) {
+      text.textContent = current.slice(0, i);
+      await wait(LADDER_ERASE_MS);
+    }
+    host.classList.remove("is-busy");
+  };
 
-  // Use the Web Animations API — cleaner than toggling CSS transitions,
-  // and avoids the "transition + class change in same tick" gotcha that
-  // stops the animation from ever being committed.
-  setInterval(() => {
-    const anim = track.animate(
-      [
-        { transform: "translateY(0)" },
-        { transform: "translateY(-1.2em)" },
-      ],
-      {
-        duration: LADDER_DURATION_MS,
-        easing: "cubic-bezier(.6, 0, .2, 1)",
-      }
-    );
-    anim.onfinish = () => {
-      // Swap text at the exact moment the animation ends. Without
-      // `fill: "forwards"`, transform snaps back to 0 — and because the
-      // swapped currentLine now shows what `nextLine` was showing at the
-      // peak, the return is visually seamless.
+  // The first line is already on-screen from the static assignment above
+  // — the loop starts by holding it, then erase-type-hold forever.
+  (async () => {
+    let index = 0;
+    for (;;) {
+      await wait(LADDER_HOLD_MS);
+      await eraseAll();
+      await wait(LADDER_GAP_MS);
       index = (index + 1) % lines.length;
-      currentLine.textContent = lines[index];
-      nextLine.textContent = lines[(index + 1) % lines.length];
-    };
-  }, LADDER_INTERVAL_MS);
+      await typeIn(lines[index]);
+    }
+  })();
 }
 
 // ── Email copy ────────────────────────────────────────────────────────
