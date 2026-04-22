@@ -114,10 +114,18 @@ html, body {
   font-size: 16px;
 }
 
-/* Solid underline (companies) */
+/* Solid underline (companies) — matches .email-pill hover language:
+   currentColor underline + accent on hover, so the two inline link
+   patterns feel like one system. */
 .u-solid {
-  border-bottom: 1.5px solid var(--ink);
+  border-bottom: 1.5px solid currentColor;
   cursor: pointer;
+  transition: color 0.15s;
+}
+
+.u-solid:hover,
+.u-solid:focus-visible {
+  color: var(--accent);
 }
 
 /* Dotted underline (AI paragraph highlights) */
