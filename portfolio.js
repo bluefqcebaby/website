@@ -1,4 +1,4 @@
-// Andrei Iashchuk — portfolio interactions
+// Andrei Yaschuk — portfolio interactions
 // Ladder loop, email copy, tweakable theme, dark mode.
 
 /**
@@ -23,7 +23,7 @@ const COPY_TOAST_MS = 1400;
 const DEFAULTS = Object.freeze({
   accent: "#6ba3c7",
   paper: "#ffffff",
-  handFont: "Caveat",
+  handFont: "Gloria Hallelujah",
   proseFont: "Crimson Pro",
 });
 
@@ -31,6 +31,7 @@ const DEFAULTS = Object.freeze({
 // drop it so the current DEFAULT wins on next load — this lets us roll
 // the palette forward without stranding users who never touched the
 // tweaks panel. Explicit picks of other values are preserved.
+const LEGACY_HAND_DEFAULTS = new Set(["Caveat"]);
 const LEGACY_PROSE_DEFAULTS = new Set(["Instrument Serif", "Spectral"]);
 const LEGACY_ACCENT_DEFAULTS = new Set(["#e4572e", "#c1daea"]);
 const LEGACY_PAPER_DEFAULTS = new Set(["#fbf8f1"]);
@@ -43,6 +44,7 @@ function loadState() {
     if (!raw) return { ...DEFAULTS };
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return { ...DEFAULTS };
+    if (LEGACY_HAND_DEFAULTS.has(parsed.handFont)) delete parsed.handFont;
     if (LEGACY_PROSE_DEFAULTS.has(parsed.proseFont)) delete parsed.proseFont;
     if (LEGACY_ACCENT_DEFAULTS.has(parsed.accent)) delete parsed.accent;
     if (LEGACY_PAPER_DEFAULTS.has(parsed.paper)) delete parsed.paper;
@@ -112,8 +114,30 @@ function initLadder(host) {
 
   const text = document.createElement("span");
   text.className = "ladder-text";
-  text.textContent = lines[0];
+  // A leading "©" renders high in JetBrains Mono (near the ascender
+  // instead of seated on the baseline like the rest of the line). We
+  // split it into its own span so CSS can nudge just that glyph down
+  // without affecting any other character. The text node carries
+  // everything after the "©".
+  const copyGlyph = document.createElement("span");
+  copyGlyph.className = "copyright-glyph";
+  const textNode = document.createTextNode("");
+  text.appendChild(copyGlyph);
+  text.appendChild(textNode);
   host.appendChild(text);
+
+  /** @param {string} slice */
+  const render = (slice) => {
+    if (slice.startsWith("©")) {
+      copyGlyph.textContent = "©";
+      textNode.data = slice.slice(1);
+    } else {
+      copyGlyph.textContent = "";
+      textNode.data = slice;
+    }
+  };
+
+  render(lines[0]);
 
   const prefersReducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)"
@@ -138,7 +162,7 @@ function initLadder(host) {
   const typeIn = async (target) => {
     host.classList.add("is-busy");
     for (let i = 1; i <= target.length; i++) {
-      text.textContent = target.slice(0, i);
+      render(target.slice(0, i));
       await wait(LADDER_TYPE_MS + Math.random() * LADDER_TYPE_JITTER_MS);
     }
     host.classList.remove("is-busy");
@@ -146,9 +170,9 @@ function initLadder(host) {
 
   const eraseAll = async () => {
     host.classList.add("is-busy");
-    const current = text.textContent ?? "";
+    const current = (copyGlyph.textContent ?? "") + (textNode.data ?? "");
     for (let i = current.length - 1; i >= 0; i--) {
-      text.textContent = current.slice(0, i);
+      render(current.slice(0, i));
       await wait(LADDER_ERASE_MS);
     }
     host.classList.remove("is-busy");
@@ -346,7 +370,9 @@ function typeText(el, text, perChar) {
 function runIntro() {
   const name = document.querySelector(".name");
   const subtitle = document.querySelector(".subtitle");
-  const proses = document.querySelectorAll(".prose");
+  // Include `.stack` so its fade-rise slots into the stagger in document
+  // order (it sits between P3 and P4 in markup).
+  const proses = document.querySelectorAll(".prose, .stack");
   const chips = document.querySelector(".chips");
   const footer = document.querySelector(".paragraph-footer");
 
