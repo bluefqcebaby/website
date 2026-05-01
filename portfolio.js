@@ -465,6 +465,7 @@ function init() {
       [".inline-link-cv", "cv_downloaded"],
       [".inline-link-email", "email_link_clicked"],
       [".inline-link-linkedin", "linkedin_link_clicked"],
+      [".inline-link-telegram", "telegram_link_clicked"],
       [".inline-link-github", "github_link_clicked"],
     ];
     contactLinks.forEach(([selector, event]) => {
