@@ -7,8 +7,7 @@ The wizard has completed a deep integration of PostHog analytics into this portf
 | `cv_downloaded` | User clicks the CV/PDF link — primary conversion signal | `portfolio.js` |
 | `email_link_clicked` | User clicks the email link in the contact section | `portfolio.js` |
 | `linkedin_link_clicked` | User clicks the LinkedIn profile link in the contact section | `portfolio.js` |
-| `github_link_clicked` | User clicks the GitHub profile link in the contact section | `portfolio.js` |
-| `company_link_clicked` | User clicks a past employer link (Nex, OTP Bank, Alfa Bank, EPAM) — includes `company` and `url` properties | `portfolio.js` |
+| `company_link_clicked` | User clicks a past employer link (Nex, Zapier, Alfa Bank, EPAM) — includes `company` and `url` properties | `portfolio.js` |
 | `theme_toggled` | User switches between light and dark mode — includes `theme` property | `portfolio.js` |
 
 ## Next steps
