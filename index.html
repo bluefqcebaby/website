@@ -14,11 +14,26 @@
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
 <link rel="icon" href="favicon-16.png" sizes="16x16" type="image/png" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="dust.css?v=8" />
-<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.169.0/build/three.module.js"}}</script>
+<link rel="preload" href="./vendor/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="dust.css?v=10" />
+<!-- Opt into the dust only once we know it can actually run. This is
+     deliberately synchronous and in <head>: it decides before first paint, so
+     nobody sees the copy flash away, and a machine that fails the check just
+     renders the readable page with no black frame at all. -->
+<script>
+(function(){
+  var h=document.documentElement;
+  try{
+    if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+    var c=document.createElement("canvas");
+    var gl=c.getContext("webgl")||c.getContext("experimental-webgl");
+    if(!gl)return;
+    /* Free the probe context — browsers cap how many can be live at once. */
+    var lose=gl.getExtension("WEBGL_lose_context");if(lose)lose.loseContext();
+    h.className=h.className?h.className+" dust-mode":"dust-mode";
+  }catch(e){}
+})()
+</script>
 </head>
 <body class="is-closed">
 <div class="gl" aria-hidden="true"></div>
@@ -56,9 +71,18 @@
 </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-<script type="module" src="dust.js?v=19"></script>
-<script>setTimeout(function(){var h=document.documentElement;if(!document.querySelector(".gl canvas")&&!h.classList.contains("static-reveal")){h.classList.add("static-reveal")}},3200)</script>
+<script src="./vendor/gsap.min.js"></script>
+<script type="module" src="dust.js?v=21" onerror="document.documentElement.classList.remove('dust-mode')"></script>
+<!-- Last resort: dust.js never even got to announce itself (no module support,
+     an asset that 404s). Bail out to the readable page; dust.js checks for
+     dust-mode before touching anything, so a late arrival stays quiet rather
+     than yanking the copy back off screen. -->
+<script>
+setTimeout(function(){
+  var h=document.documentElement;
+  if(h.dataset.dust!=="on")h.classList.remove("dust-mode");
+},2500)
+</script>
 
 <!-- PostHog analytics -->
 <script>
@@ -157,22 +181,32 @@
                 : "light",
         });
 
-        // The copy sits behind the dust gate, so a pageview alone doesn't mean
-        // it was read. Watch for either reveal path: the gate opening
-        // (.page[data-open]) or the no-WebGL fallback (html.static-reveal).
+        // A pageview doesn't mean the copy was read: behind the gate it is
+        // still hidden. "static" now means the dust never took over, so the
+        // page was readable from the first frame. Compare page_opened against
+        // portfolio_loaded to see anyone who read nothing at all.
         const pageEl = document.querySelector(".page");
         const root = document.documentElement;
-        const observer = new MutationObserver(function () {
-            const viaGate = pageEl.hasAttribute("data-open");
-            if (!viaGate && !root.classList.contains("static-reveal")) return;
-            observer.disconnect();
-            capture("page_opened", { mode: viaGate ? "gate" : "static" });
-        });
-        observer.observe(root, {
-            attributes: true,
-            subtree: true,
-            attributeFilter: ["data-open", "class"],
-        });
+        const dustMode = () => root.classList.contains("dust-mode");
+
+        if (!dustMode()) {
+            capture("page_opened", { mode: "static" });
+        } else {
+            const observer = new MutationObserver(function () {
+                const viaGate = pageEl.hasAttribute("data-open");
+                if (!viaGate && dustMode()) return;
+                observer.disconnect();
+                capture("page_opened", {
+                    // dust-mode dropped after the fact = the effect bailed out.
+                    mode: viaGate ? "gate" : "static_fallback",
+                });
+            });
+            observer.observe(root, {
+                attributes: true,
+                subtree: true,
+                attributeFilter: ["data-open", "class"],
+            });
+        }
 
         // href fragment → event name. Anything unmatched is a company mention.
         const CONTACT = [
