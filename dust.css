@@ -47,4 +47,9 @@ h1{font-size:13px;font-weight:400;margin:0;letter-spacing:0.06em;opacity:0;white
 
 html.static-reveal .gl,html.static-reveal .gate,html.static-reveal .comet{display:none}
 html.static-reveal .page{opacity:1;pointer-events:auto}
+/* Nothing to collapse back into — doClose() bails while open is false. */
+html.static-reveal .collapse{display:none}
+/* is-closed locks scrolling for the gate; in the fallback the copy is all
+   there is, and on a short viewport it has to be reachable. */
+html.static-reveal body{overflow:auto;height:auto}
 html.static-reveal .r,html.static-reveal .foot,html.static-reveal h1,html.static-reveal .dim{opacity:1}
