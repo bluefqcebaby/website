@@ -29,6 +29,7 @@ const dim = document.querySelector(".dim");
 const foot = document.querySelector(".foot");
 const closeBtn = document.querySelector(".collapse");
 const comet = document.querySelector(".comet");
+const hint = document.querySelector(".gate-hint");
 
 /* Give up on the effect and leave the readable page alone. Removing the class
  * is also the signal to any later stage that it must not touch the DOM. */
@@ -428,9 +429,36 @@ addEventListener("pointerenter", () => { if (!open && ready && Math.abs(mouse.x)
 gate.addEventListener("click", doOpen);
 glHost.addEventListener("click", () => { if (!open) doOpen(); });
 if (closeBtn) closeBtn.addEventListener("click", doClose);
+
+/* ── Scroll intent ──────────────────────────────────────────────────────
+ * Scrolling is the other instinct a visitor arrives with, and the closed
+ * body has overflow:hidden — a wheel or a swipe lands on nothing. Answer it
+ * on the hint instead: pulse it, and pull it forward if the intro hasn't
+ * faded it in yet, since reaching for the scroll is already the question the
+ * hint answers. */
+const cssVar = (n) => getComputedStyle(html).getPropertyValue(n).trim();
+let nudge = null;
+function scrollIntent() {
+  if (open || busy || !ready || !hint) return;
+  /* The gate fades in on the last beat of the intro. Skip ahead to it. */
+  if (gsap.getProperty(gate, "opacity") < 1) {
+    gsap.to(gate, { opacity: 1, duration: 0.25, ease: "power2.out", overwrite: true });
+  }
+  /* One pulse per gesture — wheel fires dozens of times per flick. */
+  if (nudge && nudge.isActive()) return;
+  nudge = gsap.timeline()
+    .fromTo(hint, { color: cssVar("--mute") },
+      { color: cssVar("--ink"), scale: 1.08, duration: 0.16, ease: "power2.out" })
+    .to(hint, { color: cssVar("--mute"), scale: 1, duration: 0.55, ease: "power2.inOut" });
+}
+addEventListener("wheel", scrollIntent, { passive: true });
+addEventListener("touchmove", scrollIntent, { passive: true });
+
 addEventListener("keydown", (e) => {
   if (e.key === "Escape" && open) doClose();
   if ((e.key === "Enter" || e.key === " ") && !open) { e.preventDefault(); doOpen(); }
+  /* The keyboard's scroll keys are the same question, minus the wheel. */
+  if (!open && /^(ArrowUp|ArrowDown|PageUp|PageDown|Home|End)$/.test(e.key)) scrollIntent();
 });
 addEventListener("resize", () => {
   field.fit(); field.buildStars();
