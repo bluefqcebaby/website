@@ -104,7 +104,9 @@ void main(){
   d.y += cos(uTime * sp * 0.82 + aRand.y * 6.283) * (12.0 + uDrift * 34.0);
   d.z += sin(uTime * sp * 0.6 + aRand.z * 6.283) * 40.0;
 
-  float t = clamp((uForm - aDelay * 0.42) / 0.58, 0.0, 1.0);
+  /* Small per-grain offset only — enough to keep the left-to-right sweep,
+   * not enough to leave the field sitting still when the page opens. */
+  float t = clamp((uForm - aDelay * 0.16) / 0.84, 0.0, 1.0);
   float e = t * t * (3.0 - 2.0 * t);
   vec3 p = mix(d, aText, e);
 
@@ -343,7 +345,9 @@ sampleName(16000).then((sample) => {
   ready = true;
   const u = field.uniforms;
   gsap.timeline()
-    .to(u.uForm, { value: 1, duration: 2.4, ease: "power2.inOut" })
+    /* power2.out, not inOut: the grains move at full speed on the first frame
+     * and settle into the glyphs, instead of idling through the ease-in ramp. */
+    .to(u.uForm, { value: 1, duration: 2.2, ease: "power2.out" })
     .to(u.uMouseK, { value: 1, duration: 1.2 }, "-=0.8")
     .to(u.uJitter, { value: 1, duration: 1.8, ease: "power2.out" }, "-=1.2")
     .to(gate, { opacity: 1, duration: 0.9, ease: "power2.out" }, "-=0.6");
