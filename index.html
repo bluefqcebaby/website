@@ -12,9 +12,20 @@
 <meta property="og:type" content="website" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<!-- Non-blocking: a stalled fonts.googleapis.com must never hold up first paint,
+     or the whole page is a black rectangle until the request times out. -->
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
 <link rel="stylesheet" href="dust.css?v=8" />
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.169.0/build/three.module.js"}}</script>
+<noscript>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  .gl,.gate,.comet{display:none}
+  .page{opacity:1 !important;pointer-events:auto}
+  .r,.foot,h1,.dim{opacity:1 !important}
+  .collapse{display:none}
+  body.is-closed{overflow:auto;height:auto}
+</style></noscript>
 </head>
 <body class="is-closed">
 <div class="gl" aria-hidden="true"></div>
@@ -53,8 +64,26 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-<script type="module" src="dust.js?v=19"></script>
-<script>setTimeout(function(){var h=document.documentElement;if(!document.querySelector(".gl canvas")&&!h.classList.contains("static-reveal")){h.classList.add("static-reveal")}},3200)</script>
+<script type="module" src="dust.js?v=20"></script>
+<!-- Two watchdogs. The first catches "dust.js never booted" (CDN blocked, no
+     importmap support). The second catches "it booted but never became
+     interactive" — a stalled font fetch, a canvas readback blocked by a privacy
+     extension. Without it, the mere existence of the canvas disarmed the only
+     fallback and the page stayed black forever. -->
+<script>
+(function(){
+  var h=document.documentElement;
+  function reveal(){if(!h.classList.contains("static-reveal"))h.classList.add("static-reveal")}
+  function interactive(){
+    if(h.classList.contains("static-reveal"))return true;
+    if(document.querySelector(".page[data-open]"))return true;
+    var g=document.querySelector(".gate");
+    return !!g&&parseFloat(getComputedStyle(g).opacity)>0.5;
+  }
+  setTimeout(function(){if(!document.querySelector(".gl canvas"))reveal()},3200);
+  setTimeout(function(){if(!interactive())reveal()},8000);
+})()
+</script>
 
 <!-- PostHog analytics -->
 <script>

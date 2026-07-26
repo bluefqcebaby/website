@@ -35,7 +35,14 @@ const inkColor = () => new THREE.Color(getComputedStyle(html).getPropertyValue("
 
 /* ── Sample the name's glyph pixels ────────────────────────────────────── */
 async function sampleName(maxPts) {
-  try { await document.fonts.load('500 100px "JetBrains Mono"'); await document.fonts.ready; } catch (e) {}
+  /* Race the font, never wait on it. A throttled fonts.gstatic.com leaves
+   * document.fonts.ready pending for minutes — and everything the visitor can
+   * see or click hangs off this promise. Fall back to ui-monospace instead. */
+  const settled = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(r, ms))]);
+  try {
+    await settled(document.fonts.load('500 100px "JetBrains Mono"'), 1200);
+    await settled(document.fonts.ready, 400);
+  } catch (e) {}
   const fs = Math.max(42, Math.min(innerWidth * 0.082, 122));
   const probe = document.createElement("canvas").getContext("2d");
   const font = `500 ${fs}px "JetBrains Mono", ui-monospace, monospace`;
@@ -321,6 +328,10 @@ sampleName(16000).then((sample) => {
     .to(u.uMouseK, { value: 1, duration: 1.2 }, "-=0.8")
     .to(u.uJitter, { value: 1, duration: 1.8, ease: "power2.out" }, "-=1.2")
     .to(gate, { opacity: 1, duration: 0.9, ease: "power2.out" }, "-=0.6");
+}).catch(() => {
+  /* getImageData is the usual suspect — anti-fingerprinting extensions throw
+   * on canvas readback. Unhandled, this left the gate at opacity 0 forever. */
+  html.classList.add("static-reveal");
 });
 
 function doOpen() {
