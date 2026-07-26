@@ -1,0 +1,50 @@
+/* ── Dust — particles to page ─────────────────────────────────────────── */
+:root{--paper:#08080a;--ink:#f0eee9;--mute:#8b8983;--col:600px;--font:"JetBrains Mono",ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme:light){:root{--paper:#f7f6f3;--ink:#141416;--mute:#8a887f}}
+*,*::before,*::after{box-sizing:border-box}
+html{scrollbar-gutter:stable}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font);font-size:13px;line-height:1.9;letter-spacing:-0.01em;-webkit-font-smoothing:antialiased}
+body.is-closed{overflow:hidden;height:100%}
+::selection{background:var(--ink);color:var(--paper)}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
+
+.gl{position:fixed;inset:0;z-index:1}
+.gl canvas{display:block;width:100%;height:100%}
+
+/* ── Gate: only a hint. The name itself is dust. ─────────────────────── */
+.gate{position:fixed;left:0;right:0;bottom:11vh;z-index:4;display:grid;justify-items:center;gap:0;background:none;border:0;font:inherit;color:var(--mute);cursor:pointer;-webkit-user-select:none;user-select:none;opacity:0}
+.gate-hint{font-size:10px;letter-spacing:0.3em;text-transform:uppercase}
+.gate-sub{font-size:10px;letter-spacing:0.16em;color:var(--mute);opacity:.55}
+
+/* ── Comet streak ───────────────────────────────────────────────────── */
+.comet{position:fixed;top:0;left:0;z-index:2;height:1px;pointer-events:none;opacity:0;transform-origin:0 50%;background:linear-gradient(90deg,transparent 0%,color-mix(in oklab,var(--ink) 18%,transparent) 45%,var(--ink) 96%,var(--ink) 100%)}
+.comet::after{content:"";position:absolute;right:-1px;top:-1px;width:3px;height:3px;border-radius:50%;background:var(--ink)}
+
+
+/* ── Page: label gutter, no rules, whitespace only ──────────────────── */
+.page{position:relative;z-index:3;max-width:var(--col);margin:0 auto;padding:14vh 32px 12vh;opacity:0;pointer-events:none}
+.page[data-open]{opacity:1;pointer-events:auto}
+
+.head{display:flex;align-items:baseline;justify-content:space-between;gap:24px;margin:0 0 8vh}
+h1{font-size:13px;font-weight:400;margin:0;letter-spacing:0.06em;opacity:0;white-space:nowrap}
+.dim{color:var(--mute);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;opacity:0;white-space:nowrap}
+
+.r{margin:0 0 3.6vh;opacity:0}
+.r p{margin:0;text-align:justify;text-justify:inter-word;hyphens:none;overflow-wrap:break-word}
+.mark{border-bottom:1px solid var(--mute);transition:border-color 180ms ease,color 180ms ease}
+.mark:hover{border-color:var(--ink)}
+
+.foot{display:flex;align-items:baseline;justify-content:space-between;gap:24px;margin-top:5vh;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--mute);opacity:0}
+.collapse{background:none;border:0;padding:0;font:inherit;letter-spacing:inherit;text-transform:inherit;color:var(--mute);cursor:pointer;width:fit-content;transition:color 160ms ease}
+.collapse:hover{color:var(--ink)}
+
+@media (max-width:680px){
+  .page{padding:12vh 22px 10vh}
+  .head{flex-direction:column;gap:4px;margin-bottom:6vh}
+}
+
+html.static-reveal .gl,html.static-reveal .gate,html.static-reveal .comet{display:none}
+html.static-reveal .page{opacity:1;pointer-events:auto}
+html.static-reveal .r,html.static-reveal .foot,html.static-reveal h1,html.static-reveal .dim{opacity:1}
