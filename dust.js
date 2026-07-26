@@ -13,7 +13,9 @@
  * slot for 16-42s, then detaches, falls and fades. three.js draws the field,
  * GSAP owns every timing.
  */
-import * as THREE from "three";
+/* Self-hosted and imported by path: no importmap, so this also runs on the
+ * browsers that never shipped one (Safari before 16.4). */
+import * as THREE from "./vendor/three.module.js";
 
 const gsap = window.gsap;
 const html = document.documentElement;
@@ -28,8 +30,21 @@ const foot = document.querySelector(".foot");
 const closeBtn = document.querySelector(".collapse");
 const comet = document.querySelector(".comet");
 
-const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-if (!gsap || reduce) { html.classList.add("static-reveal"); throw new Error("static"); }
+/* Give up on the effect and leave the readable page alone. Removing the class
+ * is also the signal to any later stage that it must not touch the DOM. */
+const bail = () => {
+  html.classList.remove("dust-mode");
+  /* gsap.set(rows, {y:12}) has usually landed by now; left inline it offsets
+   * every paragraph in the static page. */
+  if (window.gsap) window.gsap.set([...rows, h1, dim, foot].filter(Boolean), { clearProps: "all" });
+};
+const live = () => html.classList.contains("dust-mode");
+
+/* The head probe already vetoed reduced-motion and missing WebGL. If it never
+ * opted in — or the 2.5s watchdog gave up on us while three.js was still on the
+ * wire — the copy is on screen and stays there. */
+if (!live()) throw new Error("dust: not wanted");
+if (!gsap) { bail(); throw new Error("dust: no gsap"); }
 
 const inkColor = () => new THREE.Color(getComputedStyle(html).getPropertyValue("--ink").trim() || "#eee");
 
@@ -274,6 +289,8 @@ function makeField() {
   const clock = new THREE.Clock();
   const state = { sway: 0 };
   (function loop() {
+    /* Bailed out — the canvas is hidden, stop burning frames on it. */
+    if (!live()) { renderer.dispose(); return; }
     const t = clock.getElapsedTime();
     uniforms.uTime.value = t;
     const s = state.sway;
@@ -288,7 +305,9 @@ function makeField() {
 }
 
 let field = null;
-try { field = makeField(); } catch (e) { html.classList.add("static-reveal"); throw e; }
+try { field = makeField(); } catch (e) { bail(); throw e; }
+/* Renderer is up — claim the page before the watchdog fires. */
+html.dataset.dust = "on";
 
 /* ── Comet: a rare streak crossing the field ──────────────────────── */
 let cometTimer = null;
@@ -331,7 +350,7 @@ sampleName(16000).then((sample) => {
 }).catch(() => {
   /* getImageData is the usual suspect — anti-fingerprinting extensions throw
    * on canvas readback. Unhandled, this left the gate at opacity 0 forever. */
-  html.classList.add("static-reveal");
+  bail();
 });
 
 function doOpen() {
